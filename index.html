@@ -3365,3 +3365,79 @@ window.V3852_AUDIT={risks:RISKS.map(x=>x.title),views:VIEWS.map(x=>x.label),sour
   document.querySelectorAll('.v30-release-badge').forEach(el=>el.textContent='V38.64');
 })();
 </script>
+
+<style id="web3forms-style">
+.w3f-status{margin:10px 0 0;font-size:14px;line-height:1.4}
+.w3f-status.ok{color:#1b7f3b}.w3f-status.err{color:#c0392b}
+</style>
+<script id="web3forms-script">
+(function(){
+  const ENDPOINT='https://api.web3forms.com/submit';
+  const ACCESS_KEY='3ee5b831-5b84-44a4-a094-d77d8db9003f';
+
+  function fieldsOf(box){
+    const data={};
+    box.querySelectorAll('input,textarea,select').forEach(el=>{
+      const key=el.name||el.getAttribute('aria-label')||el.placeholder||el.type;
+      if(el.value.trim()) data[key.length>40?'Message':key]=el.value.trim();
+    });
+    return data;
+  }
+  function statusEl(after){
+    let s=after.parentNode.querySelector(':scope > .w3f-status');
+    if(!s){s=document.createElement('p');s.className='w3f-status';s.setAttribute('role','status');s.setAttribute('aria-live','polite');after.after(s);}
+    return s;
+  }
+  async function send(button,box,extra,onSuccess){
+    const status=statusEl(button);
+    const fields=fieldsOf(box);
+    const email=fields.Email||'';
+    if(!fields.Name||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+      status.className='w3f-status err';status.textContent='Please enter your name and a valid email.';return;
+    }
+    const label=button.textContent;
+    button.disabled=true;button.textContent='Sending…';status.textContent='';
+    try{
+      const res=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},
+        body:JSON.stringify(Object.assign({access_key:ACCESS_KEY,botcheck:false,name:fields.Name,email:email,replyto:email},extra,fields))});
+      const json=await res.json().catch(()=>({}));
+      if(!res.ok||!json.success) throw new Error(json.message||'Request failed');
+      onSuccess(status);
+    }catch(err){
+      status.className='w3f-status err';
+      status.textContent='Sorry, your request could not be sent. Please try again or contact us directly.';
+    }finally{
+      button.disabled=false;button.textContent=label;
+    }
+  }
+
+  // Technical documentation request (detail pages).
+  window.submitTechInfo=function(){
+    const box=document.getElementById('techInfoForm');if(!box)return;
+    const button=box.querySelector('.tech-submit');
+    const title=((typeof detailContext!=='undefined'&&detailContext&&detailContext.title)||document.querySelector('#detailContent h1,#detailContent h2')?.textContent||'').trim();
+    send(button,box,{
+      subject:'NEW INFO PACK REQUEST',
+      from_name:'iottag Catalogue — Technical Doc form',
+      System:title,Page:location.href
+    },()=>{box.innerHTML='<strong>Thanks — your technical information request has been sent to the iottag engineering team.</strong>';});
+  };
+
+  // Request for Quotation (#enquiry).
+  document.addEventListener('click',e=>{
+    const button=e.target.closest('#enquiry .quote-submit');if(!button)return;
+    e.preventDefault();
+    const form=document.querySelector('#enquiry .quote-form');if(!form)return;
+    const systems=[...document.querySelectorAll('#quoteList .quote-item b')].map(b=>b.textContent.trim()).filter(Boolean);
+    send(button,form,{
+      subject:'NEW QUOTE REQUEST',
+      from_name:'iottag Catalogue — Quotation form',
+      'Selected systems':systems.length?systems.join(', '):'(none selected)',Page:location.href
+    },status=>{
+      form.querySelectorAll('input,textarea').forEach(el=>{el.value='';});
+      status.className='w3f-status ok';
+      status.textContent='Thanks — your quotation request has been sent. iottag engineering will be in touch within 1 business day.';
+    });
+  });
+})();
+</script>
